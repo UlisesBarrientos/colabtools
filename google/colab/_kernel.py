@@ -32,6 +32,21 @@ class Kernel(ipkernel.IPythonKernel):
 
     data = {}
     if info['found']:
+      info_text = self.shell.object_inspect_text(
+          name, detail_level=detail_level
+      )
+      # Only include info_text if less than 2 MiB. We have seen frontend lockup
+      # issues when this is very large. See b/401357469 for more details.
+      # 2 MiB is chosen as an arbitrary starting point.
+      if len(info_text) < 2**20:
+        data['text/plain'] = info_text
+      else:
+        self.log.warning(
+            'do_inspect text/plain output omitted as it was too large:'
+            ' size %d bytes',
+            len(info_text),
+        )
+
       # Provide the structured inspection information to allow the frontend to
       # format as desired.
       argspec = info.get('argspec')
@@ -51,7 +66,6 @@ class Kernel(ipkernel.IPythonKernel):
         'metadata': {},
         'found': info['found'],
     }
-
     return reply_content
 
   def complete_request(self, stream, ident, parent):
